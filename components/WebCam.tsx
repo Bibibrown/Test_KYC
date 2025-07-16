@@ -5,89 +5,110 @@ import React, { useRef, useState, useCallback } from 'react';
 import Webcam from 'react-webcam';
 
 const WebcamCapture: React.FC = () => {
-  const webcamRef = useRef<Webcam | null>(null);
-  const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user'); // 'user' = front camera, 'environment' = back camera
+    const webcamRef = useRef<Webcam | null>(null);
+    const [imageSrc, setImageSrc] = useState<string | null>(null);
+    const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment'); // 'user' = front camera, 'environment' = back camera
 
-  // Function to capture an image
-  const capture = useCallback(() => {
-    if (webcamRef.current) {
-      const screenshot = webcamRef.current.getScreenshot();
-      setImageSrc(screenshot);
-    }
-  }, [webcamRef]);
+    // Function to capture an image
+    const capture = useCallback(() => {
+        if (webcamRef.current) {
+            const screenshot = webcamRef.current.getScreenshot();
+            setImageSrc(screenshot);
+        }
+    }, [webcamRef]);
 
-  // Function to clear the captured image
-  const clearImage = useCallback(() => {
-    setImageSrc(null);
-  }, []);
+    // Function to clear the captured image
+    const clearImage = useCallback(() => {
+        setImageSrc(null);
+    }, []);
 
-  // Function to switch camera (front/back)
-  const toggleFacingMode = useCallback(() => {
-    setFacing(prevMode => (prevMode === 'user' ? 'environment' : 'user'));
-  }, []);
+    // Function to switch camera (front/back)
+    const toggleFacingMode = useCallback(() => {
+        setFacing(prevMode => (prevMode === 'user' ? 'environment' : 'user'));
+    }, []);
 
-  const videoConstraints = {
-    facingMode: facingMode,
-    width: { ideal: 1280 }, // Example ideal width
-    height: { ideal: 720 }, // Example ideal height
-  };
+    const videoConstraints = {
+        facingMode: facingMode,
+        width: { ideal: 1280 }, // Example ideal width
+        height: { ideal: 720 }, // Example ideal height
+    };
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px' }}>
-      <h2>Webcam Capture</h2>
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px' }}>
+            <h2>Webcam Capture</h2>
 
-      {/* ถ้ายังไม่มีรูปที่ถ่าย หรือต้องการถ่ายใหม่ */}
-      {!imageSrc && (
-        <div style={{ marginBottom: '20px', border: '1px solid #ccc', borderRadius: '8px', overflow: 'hidden' }}>
-          <Webcam
-            audio={false} // ไม่ใช้เสียง
-            ref={webcamRef}
-            screenshotFormat="image/jpeg" // รูปแบบของภาพที่ถ่าย
-            videoConstraints={videoConstraints}
-            width={640} // กำหนดความกว้างของวิดีโอ
-            height={480} // กำหนดความสูงของวิดีโอ
-            style={{ borderRadius: '8px' }}
-          />
+            {/* ถ้ายังไม่มีรูปที่ถ่าย หรือต้องการถ่ายใหม่ */}
+            {!imageSrc && (
+                <div style={{
+                    position: 'relative', // ทำให้เป็น parent สำหรับกรอบที่ใช้ absolute
+                    marginBottom: '20px',
+                    border: '1px solid #ccc',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    width: 600, // กำหนดความกว้างให้ตรงกับ Webcam
+                    height: 300, // กำหนดความสูงให้ตรงกับ Webcam
+                }}>
+                    <Webcam
+                        audio={false} // ไม่ใช้เสียง
+                        ref={webcamRef}
+                        screenshotFormat="image/jpeg" // รูปแบบของภาพที่ถ่าย
+                        videoConstraints={videoConstraints}
+                        width={640} // กำหนดความกว้างของวิดีโอ
+                        height={480} // กำหนดความสูงของวิดีโอ
+                        style={{ borderRadius: '8px' }}
+                    />
+                    <div style={{
+                        position: 'absolute',
+                        top: '10%', // เริ่มจาก 10% จากด้านบน
+                        left: '10%', // เริ่มจาก 10% จากด้านซ้าย
+                        width: '80%', // กว้าง 80% ของ container
+                        height: '80%', // สูง 80% ของ container
+                        border: '5px solid yellow', // สีและขนาดของกรอบ
+                        boxSizing: 'border-box', // ทำให้ border ไม่เพิ่มขนาดของกรอบ
+                        pointerEvents: 'none', // ทำให้กรอบไม่บล็อกการคลิกที่กล้อง
+                        borderRadius: '15px', // ทำให้กรอบมีมุมโค้ง
+                        // คุณสามารถเพิ่ม background-color: 'rgba(0, 255, 0, 0.2)'; สำหรับ overlay โปร่งแสง
+                    }}>
+                    </div>
+                </div>
+            )}
+
+            {/* แสดงรูปที่ถ่ายได้ */}
+            {imageSrc && (
+                <div style={{ marginBottom: '20px', border: '1px solid #ccc', borderRadius: '8px', overflow: 'hidden' }}>
+                    <h3>Captured Image:</h3>
+                    <img src={imageSrc} alt="Captured" style={{ width: '100%', maxWidth: '640px', borderRadius: '8px' }} />
+                </div>
+            )}
+
+            {/* ปุ่มควบคุม */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+                {!imageSrc ? (
+                    <>
+                        <button
+                            onClick={capture}
+                            style={{ padding: '10px 20px', fontSize: '16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
+                        >
+                            Capture Photo
+                        </button>
+                        <button
+                            onClick={toggleFacingMode}
+                            style={{ padding: '10px 20px', fontSize: '16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
+                        >
+                            Switch Camera ({facingMode === 'user' ? 'Front' : 'Back'})
+                        </button>
+                    </>
+                ) : (
+                    <button
+                        onClick={clearImage}
+                        style={{ padding: '10px 20px', fontSize: '16px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
+                    >
+                        Retake Photo
+                    </button>
+                )}
+            </div>
         </div>
-      )}
-
-      {/* แสดงรูปที่ถ่ายได้ */}
-      {imageSrc && (
-        <div style={{ marginBottom: '20px', border: '1px solid #ccc', borderRadius: '8px', overflow: 'hidden' }}>
-          <h3>Captured Image:</h3>
-          <img src={imageSrc} alt="Captured" style={{ width: '100%', maxWidth: '640px', borderRadius: '8px' }} />
-        </div>
-      )}
-
-      {/* ปุ่มควบคุม */}
-      <div style={{ display: 'flex', gap: '10px' }}>
-        {!imageSrc ? (
-          <>
-            <button
-              onClick={capture}
-              style={{ padding: '10px 20px', fontSize: '16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
-            >
-              Capture Photo
-            </button>
-            <button
-              onClick={toggleFacingMode}
-              style={{ padding: '10px 20px', fontSize: '16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
-            >
-              Switch Camera ({facingMode === 'user' ? 'Front' : 'Back'})
-            </button>
-          </>
-        ) : (
-          <button
-            onClick={clearImage}
-            style={{ padding: '10px 20px', fontSize: '16px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
-          >
-            Retake Photo
-          </button>
-        )}
-      </div>
-    </div>
-  );
+    );
 };
 
 export default WebcamCapture;
