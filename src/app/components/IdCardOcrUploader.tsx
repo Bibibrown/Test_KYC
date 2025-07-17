@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
 
 interface OcrResult {
@@ -28,6 +28,25 @@ export default function IdCardOcrUploader() {
   const [isImageBlurry, setIsImageBlurry] = useState<boolean>(false);
 
   const webcamRef = useRef<Webcam>(null);
+  const [cvLoaded, setCvLoaded] = useState(false);
+
+  // Dynamically load OpenCV.js
+  useEffect(() => {
+    if (!(window as any).cv) {
+      const script = document.createElement('script');
+      script.src = 'https://docs.opencv.org/4.x/opencv.js';
+      script.async = true;
+      script.onload = () => {
+        // Wait for OpenCV to be ready
+        (window as any).cv['onRuntimeInitialized'] = () => {
+          setCvLoaded(true);
+        };
+      };
+      document.body.appendChild(script);
+    } else {
+      setCvLoaded(true);
+    }
+  }, []);
 
   const startCamera = () => {
     setOcrResult(null);
@@ -37,84 +56,71 @@ export default function IdCardOcrUploader() {
     setIsImageBlurry(false);
   };
 
-  const handleCapture = useCallback(() => {
+const handleCapture = useCallback(() => {
   console.log("เรียก handleCapture แล้ว");
-
-  if (webcamRef.current) {
-    console.log("webcamRef.current มีค่า:", webcamRef.current);
-
-    const imageSrc = webcamRef.current.getScreenshot();
-    if (imageSrc) {
-      console.log("✅ ได้ภาพ:", imageSrc);
-
-      setCapturedImage(imageSrc);
-      checkImageBlur(imageSrc);
-    } else {
-      console.error("❌ getScreenshot คืนค่า null");
-    }
-  } else {
-    console.error("❌ webcamRef.current ไม่มีค่า (Webcam ยังไม่ ready?)");
+  if (!webcamRef.current) return;
+  const imageSrc = webcamRef.current.getScreenshot();
+  if (!imageSrc) {
+    setError('ไม่สามารถจับภาพได้');
+    return;
   }
-}, [webcamRef]);
+  setCapturedImage(imageSrc);
 
-
-  const checkImageBlur = (imageDataUrl: string) => {
-  console.log("เริ่มตรวจสอบรูปเบลอ...");
-  console.log("URL ของรูป:", imageDataUrl.slice(0, 100));  // แสดงแค่ 100 ตัวอักษรแรก
-
-  const img = new Image();
-  img.src = imageDataUrl;
-
-  img.onload = () => {
-    console.log("โหลดรูปสำเร็จ ตรวจสอบความชัด...");
-
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      console.error("Canvas context ไม่มีค่า");
+  // Check blur using OpenCV
+  const checkImageBlurOpenCV = (imageDataUrl: string) => {
+    if (!(window as any).cv) {
+      setError('OpenCV.js ยังไม่โหลด กรุณารอสักครู่แล้วลองใหม่');
       return;
     }
+    const cv = (window as any).cv;
+    const img = new Image();
+    img.src = imageDataUrl;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0);
 
-    canvas.width = img.width;
-    canvas.height = img.height;
-    ctx.drawImage(img, 0, 0);
+      const src = cv.imread(canvas);
+      const gray = new cv.Mat();
+      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    console.log("ดึงข้อมูลพิกเซลสำเร็จ, ความยาว:", imageData.length);
+      const laplacian = new cv.Mat();
+      cv.Laplacian(gray, laplacian, cv.CV_64F);
 
-    let sumSqDiff = 0;
-    let count = 0;
+      const mean = new cv.Mat();
+      const stddev = new cv.Mat();
+      cv.meanStdDev(laplacian, mean, stddev);
 
-    for (let i = 0; i < imageData.length - 4 * 4; i += 4) {
-      const r1 = imageData[i];
-      const r2 = imageData[i + 4];
-      const diff = Math.abs(r1 - r2);
+      const variance = Math.pow(stddev.doubleAt(0, 0), 2);
 
-      sumSqDiff += diff * diff;
-      count++;
-    }
+      console.log('OpenCV.js Variance:', variance);
 
-    const variance = sumSqDiff / count;
-    console.log("Variance:", variance);
+      const blurryThreshold = 100;  // ตั้งค่าตามต้องการ
+      const isBlurry = variance < blurryThreshold;
 
-    const blurryThreshold = 20;
-    const isBlurry = variance < blurryThreshold;
+      setIsImageBlurry(isBlurry);
 
-    setIsImageBlurry(isBlurry);
+      if (isBlurry) {
+        setStatus('capturing');
+        setError('รูปเบลอ กรุณาถ่ายใหม่');
+      } else {
+        setStatus('preview');
+        setError(null);
+      }
 
-    if (isBlurry) {
-      setStatus('capturing');
-      setError('รูปที่ถ่ายเบลอ กรุณาถ่ายใหม่ให้ชัดเจน');
-    } else {
-      setStatus('preview');
-      setError(null);
-    }
+      src.delete();
+      gray.delete();
+      laplacian.delete();
+      mean.delete();
+      stddev.delete();
+    };
   };
 
-  img.onerror = () => {
-    console.error("❌ โหลดรูปไม่สำเร็จ");
-  };
-};
+  checkImageBlurOpenCV(imageSrc);
+}, [webcamRef]);
+
 
 
   const handleSubmit = async () => {
@@ -135,20 +141,16 @@ export default function IdCardOcrUploader() {
         throw new Error(errData.error || `Server error: ${apiResponse.statusText}`);
       }
       const result = await apiResponse.json();
-      if (result.success) {
-        setOcrResult(result.data);
-        setStatus(result.verificationStatus);
-      } else {
-        throw new Error(result.error || 'ไม่สามารถประมวลผลไฟล์ได้');
-      }
+      setOcrResult(result);
+      setStatus('pass'); // or 'fail' based on your logic
     } catch (err: any) {
+      setError(err.message || 'เกิดข้อผิดพลาดในการส่งข้อมูล');
       setStatus('fail');
-      setError(err.message);
     }
   };
 
   return (
-    <div className="w-full max-w-lg p-4 mx-auto bg-gray-800 rounded-xl">
+    <div>
       <h1 className="text-xl font-bold text-center text-white mb-4">ตรวจสอบข้อมูลบัตรประชาชน</h1>
       {status === 'idle' && (
         <button
@@ -161,6 +163,11 @@ export default function IdCardOcrUploader() {
 
       {status === 'capturing' && (
         <div className="relative w-full aspect-[9/16] bg-black rounded-lg overflow-hidden">
+          {!cvLoaded && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 z-10">
+              <span className="text-white">กำลังโหลด OpenCV.js...</span>
+            </div>
+          )}
           <Webcam
             audio={false}
             ref={webcamRef}
@@ -169,7 +176,7 @@ export default function IdCardOcrUploader() {
             className="w-full h-full object-cover"
           />
           <div className="absolute bottom-5 left-1/2 -translate-x-1/2">
-            <button onClick={handleCapture} className="w-16 h-16 bg-white rounded-full border-4 border-gray-400 shadow-lg"></button>
+            <button onClick={handleCapture} className="w-16 h-16 bg-white rounded-full border-4 border-gray-400 shadow-lg" disabled={!cvLoaded}></button>
           </div>
         </div>
       )}
@@ -197,6 +204,13 @@ export default function IdCardOcrUploader() {
       {status === 'processing' && <p className="text-center text-white">กำลังประมวลผล...</p>}
 
       {error && <p className="text-red-400 mt-4 text-center">{error}</p>}
+
+      {status === 'pass' && ocrResult && (
+        <div className="mt-4 bg-white rounded-lg p-4">
+          <h2 className="font-bold mb-2">ผลลัพธ์ OCR</h2>
+          <pre className="text-xs">{JSON.stringify(ocrResult, null, 2)}</pre>
+        </div>
+      )}
     </div>
   );
 }
