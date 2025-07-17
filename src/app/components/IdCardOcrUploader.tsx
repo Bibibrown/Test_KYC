@@ -59,46 +59,63 @@ export default function IdCardOcrUploader() {
 
 
   const checkImageBlur = (imageDataUrl: string) => {
-    const img = new Image();
-    img.src = imageDataUrl;
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+  console.log("เริ่มตรวจสอบรูปเบลอ...");
+  console.log("URL ของรูป:", imageDataUrl.slice(0, 100));  // แสดงแค่ 100 ตัวอักษรแรก
 
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
+  const img = new Image();
+  img.src = imageDataUrl;
 
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  img.onload = () => {
+    console.log("โหลดรูปสำเร็จ ตรวจสอบความชัด...");
 
-      let sumSqDiff = 0;
-      let count = 0;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      console.error("Canvas context ไม่มีค่า");
+      return;
+    }
 
-      for (let i = 0; i < imageData.length - 4 * 4; i += 4) {
-        const r1 = imageData[i];
-        const r2 = imageData[i + 4];
-        const diff = Math.abs(r1 - r2);
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
 
-        sumSqDiff += diff * diff;
-        count++;
-      }
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    console.log("ดึงข้อมูลพิกเซลสำเร็จ, ความยาว:", imageData.length);
 
-      const variance = sumSqDiff / count;
-      const blurryThreshold = 20;
+    let sumSqDiff = 0;
+    let count = 0;
 
-      const isBlurry = variance < blurryThreshold;
-      setIsImageBlurry(isBlurry);
+    for (let i = 0; i < imageData.length - 4 * 4; i += 4) {
+      const r1 = imageData[i];
+      const r2 = imageData[i + 4];
+      const diff = Math.abs(r1 - r2);
 
-      if (isBlurry) {
-        setStatus('capturing');
-        setError('รูปที่ถ่ายเบลอ กรุณาถ่ายใหม่ให้ชัดเจน');
-      } else {
-        setStatus('preview');
-        setError(null);
-      }
-    };
+      sumSqDiff += diff * diff;
+      count++;
+    }
+
+    const variance = sumSqDiff / count;
+    console.log("Variance:", variance);
+
+    const blurryThreshold = 20;
+    const isBlurry = variance < blurryThreshold;
+
+    setIsImageBlurry(isBlurry);
+
+    if (isBlurry) {
+      setStatus('capturing');
+      setError('รูปที่ถ่ายเบลอ กรุณาถ่ายใหม่ให้ชัดเจน');
+    } else {
+      setStatus('preview');
+      setError(null);
+    }
   };
+
+  img.onerror = () => {
+    console.error("❌ โหลดรูปไม่สำเร็จ");
+  };
+};
+
 
   const handleSubmit = async () => {
     if (!capturedImage || isImageBlurry) return;
