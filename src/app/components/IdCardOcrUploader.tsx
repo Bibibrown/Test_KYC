@@ -38,14 +38,25 @@ export default function IdCardOcrUploader() {
   };
 
   const handleCapture = useCallback(() => {
-    if (webcamRef.current) {
-      const imageSrc = webcamRef.current.getScreenshot();
-      if (imageSrc) {
-        setCapturedImage(imageSrc);
-        checkImageBlur(imageSrc);
-      }
+  console.log("เรียก handleCapture แล้ว");
+
+  if (webcamRef.current) {
+    console.log("webcamRef.current มีค่า:", webcamRef.current);
+
+    const imageSrc = webcamRef.current.getScreenshot();
+    if (imageSrc) {
+      console.log("✅ ได้ภาพ:", imageSrc);
+
+      setCapturedImage(imageSrc);
+      checkImageBlur(imageSrc);
+    } else {
+      console.error("❌ getScreenshot คืนค่า null");
     }
-  }, []);
+  } else {
+    console.error("❌ webcamRef.current ไม่มีค่า (Webcam ยังไม่ ready?)");
+  }
+}, [webcamRef]);
+
 
   const checkImageBlur = (imageDataUrl: string) => {
     const img = new Image();
