@@ -122,18 +122,14 @@ export default function IdCardOcrUploader() {
   return (
     <div className="w-full max-w-lg p-4 mx-auto bg-gray-800 rounded-xl">
       <h1 className="text-xl font-bold text-center text-white mb-4">ตรวจสอบข้อมูลบัตรประชาชน</h1>
-      <Webcam
-              audio={false}
-              ref={webcamRef}
-              screenshotFormat="image/jpeg"
-              videoConstraints={videoConstraints}
-              className="w-full h-full object-cover"
-              onUserMediaError={(err) => setError("ไม่สามารถเข้าถึงกล้องได้: " + String(err))}
-            />
-            {/* <CardOverlay /> */}
-            <div className="absolute bottom-5 left-1/2 -translate-x-1/2">
-              <button onClick={handleCapture} className="w-16 h-16 bg-white rounded-full border-4 border-gray-400 focus:outline-none shadow-lg"></button>
-            </div>
+      {status === 'idle' && (
+        <button
+          onClick={startCamera}
+          className="w-full px-4 py-3 font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+        >
+          เริ่มถ่ายรูปบัตรประชาชน
+        </button>
+      )}
 
       {status === 'capturing' && (
         <div className="relative w-full aspect-[9/16] bg-black rounded-lg overflow-hidden">
